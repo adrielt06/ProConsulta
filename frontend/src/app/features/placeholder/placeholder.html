@@ -1,0 +1,17 @@
+<div class="page-head">
+  <span class="head-icon"><app-icon [name]="icon()" [size]="20" /></span>
+  <div>
+    <h1 class="head-title">{{ label() }}</h1>
+    <p class="head-sub">{{ description() }}</p>
+  </div>
+</div>
+
+<section class="card empty">
+  <span class="empty-icon"><app-icon [name]="icon()" [size]="24" /></span>
+  <h2 class="empty-title">Sección en construcción</h2>
+  <p class="empty-text">
+    La vista de {{ label() }} todavía no está disponible. Volvé a Métricas para ver el
+    resumen de tu día.
+  </p>
+  <a class="btn btn--primary" routerLink="/metricas">Volver a Métricas</a>
+</section>

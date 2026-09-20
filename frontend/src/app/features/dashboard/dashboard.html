@@ -1,0 +1,118 @@
+<div class="page-head">
+  <div>
+    <p class="head-eyebrow">{{ todayLabel }}</p>
+    <h1 class="head-title">{{ greeting }}, {{ professional.displayName }}</h1>
+  </div>
+  <a class="btn btn--secondary btn--lg" routerLink="/agenda">
+    <app-icon name="calendar" [size]="16" />
+    Abrir agenda
+  </a>
+</div>
+
+<section class="quick-actions" aria-label="Acciones rápidas">
+  @for (action of quickActions; track trackAction($index, action)) {
+    <a class="quick" [routerLink]="action.route">
+      <span class="quick-icon"><app-icon [name]="action.icon" [size]="18" /></span>
+      <span class="quick-label">{{ action.label }}</span>
+      <app-icon class="quick-arrow" name="chevron-right" [size]="16" />
+    </a>
+  }
+</section>
+
+<section class="metrics" aria-label="Métricas del día">
+  @for (metric of metrics; track trackMetric($index, metric)) {
+    <article class="card metric">
+      <div class="metric-head">
+        <span class="metric-icon"><app-icon [name]="metric.icon" [size]="18" /></span>
+        <span [class]="'metric-note metric-note--' + metric.noteTone">
+          {{ metric.note }}
+        </span>
+      </div>
+      <p class="metric-label">{{ metric.label }}</p>
+      <p class="metric-value tabular">{{ metric.value }}</p>
+    </article>
+  }
+</section>
+
+<section class="card next" aria-labelledby="next-title">
+  <span class="next-accent" aria-hidden="true"></span>
+  <div class="next-time">
+    <p class="next-eyebrow" id="next-title">Próximo turno</p>
+    <p class="next-clock tabular">{{ next.startsAt }}</p>
+    <p class="next-when tabular">Hoy · {{ next.endsAt }}</p>
+  </div>
+  <div class="next-info">
+    <span class="avatar avatar--lg">{{ initials(next.patient) }}</span>
+    <div class="next-patient">
+      <p class="next-name">{{ next.patient }}</p>
+      <p class="next-service">{{ next.service }}</p>
+    </div>
+    <span class="badge badge--success"><span class="badge__dot"></span>Confirmado</span>
+  </div>
+  <div class="next-actions">
+    <a class="btn btn--secondary" routerLink="/agenda">
+      Ver agenda
+      <app-icon name="arrow-right" [size]="16" />
+    </a>
+  </div>
+</section>
+
+<div class="columns">
+  <section class="card column-agenda" aria-labelledby="agenda-title">
+    <header class="card__head">
+      <h2 class="card__title" id="agenda-title">Hoy en la agenda</h2>
+      <span class="badge badge--neutral tabular">{{ appointments.length }} turnos</span>
+    </header>
+    <ul class="agenda-list">
+      @for (appointment of appointments; track trackById($index, appointment)) {
+        <li class="agenda-item">
+          <div class="agenda-time tabular">
+            <span class="agenda-start">{{ appointment.startsAt }}</span>
+            <span class="agenda-end">{{ appointment.endsAt }}</span>
+          </div>
+          <span class="avatar avatar--sm">{{ initials(appointment.patient) }}</span>
+          <div class="agenda-main">
+            <p class="agenda-name">{{ appointment.patient }}</p>
+            <p class="agenda-sub">
+              {{ appointment.service }} · {{ appointment.durationMinutes }} min
+            </p>
+          </div>
+          <span class="badge" [class]="badgeClass(appointment.status)">
+            {{ statusLabel(appointment.status) }}
+          </span>
+        </li>
+      }
+    </ul>
+    <div class="card__foot">
+      <a class="card__link" routerLink="/agenda">
+        Ver agenda completa
+        <app-icon name="arrow-right" [size]="15" />
+      </a>
+    </div>
+  </section>
+
+  <section class="card column-patients" aria-labelledby="patients-title">
+    <header class="card__head">
+      <h2 class="card__title" id="patients-title">Pacientes recientes</h2>
+      <a class="card__link" routerLink="/pacientes">Ver todos</a>
+    </header>
+    <ul class="patient-list">
+      @for (patient of patients; track trackPatient($index, patient)) {
+        <li class="patient-item">
+          <span class="avatar avatar--sm">{{ initials(patient.name) }}</span>
+          <div class="patient-main">
+            <p class="patient-name">{{ patient.name }}</p>
+            <p class="patient-sub">{{ patient.subtitle }}</p>
+          </div>
+          <a
+            class="patient-link"
+            routerLink="/pacientes"
+            [attr.aria-label]="'Ver ficha de ' + patient.name"
+          >
+            <app-icon name="chevron-right" [size]="16" />
+          </a>
+        </li>
+      }
+    </ul>
+  </section>
+</div>
