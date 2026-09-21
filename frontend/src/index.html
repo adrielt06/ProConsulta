@@ -6,7 +6,16 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="ProConsulta - Gestión de consultorios médicos">
+  <meta name="theme-color" content="#f7f9fc">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    try {
+      var t = localStorage.getItem('proconsulta-theme');
+      var dark = t === 'dark'
+        || (!t && typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches);
+      if (dark) document.documentElement.dataset.theme = 'dark';
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <app-root></app-root>

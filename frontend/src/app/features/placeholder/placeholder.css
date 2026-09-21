@@ -3,6 +3,7 @@
   align-items: center;
   gap: 14px;
   margin-bottom: 20px;
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
 .head-icon {
@@ -36,6 +37,7 @@
   text-align: center;
   gap: 12px;
   padding: 56px 24px;
+  animation: rise-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) 0.12s both;
 }
 
 .empty-icon {

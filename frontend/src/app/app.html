@@ -32,6 +32,15 @@
     </nav>
 
     <div class="topbar-actions">
+      <button
+        class="icon-btn theme-toggle"
+        type="button"
+        (click)="toggleTheme()"
+        [attr.aria-label]="dark() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+        [attr.aria-pressed]="dark()"
+      >
+        <app-icon [name]="dark() ? 'sun' : 'moon'" />
+      </button>
       <a class="btn btn--primary" routerLink="/agenda">
         <app-icon name="plus" [size]="16" />
         <span>Nuevo turno</span>
