@@ -1,6 +1,6 @@
 # Modelo de datos — MVP
 
-Propuesta v2. Reemplaza el modelo de dominio inicial del pitch (pág. 13). Estado: **propuesta**, sin implementar.
+Propuesta v2. Reemplaza el modelo de dominio inicial del pitch (pág. 13). Estado: **implementado** en `backend/src/main/resources/db/migration/V1__init.sql`, que es copia del DDL de este documento. Un cambio de esquema posterior va en una migración nueva (`V2__…`) y se refleja acá.
 
 PostgreSQL 18. Diez tablas que cubren las cinco funcionalidades del MVP: autenticación con multi-tenancy, perfil profesional, pacientes, agenda y reserva pública. El DDL es la fuente de verdad; el diagrama es la misma información en otra forma.
 

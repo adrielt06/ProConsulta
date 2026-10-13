@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import jakarta.servlet.DispatcherType;
@@ -37,6 +38,8 @@ class SecurityConfig {
 				.dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
 				.anyRequest().authenticated())
 			.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+			// Después de validar el JWT, que es de donde sale el consultorio.
+			.addFilterAfter(new TenantFilter(), BearerTokenAuthenticationFilter.class)
 			.build();
 	}
 

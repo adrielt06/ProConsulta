@@ -1,10 +1,15 @@
 # Plan — backend de endpoints del MVP
 
-Implementa los 39 endpoints de [endpoints-mvp.md](./endpoints-mvp.md) sobre el esquema de [modelo-datos.md](./modelo-datos.md). Estado: **propuesta**, sin implementar.
+Implementa los 39 endpoints de [endpoints-mvp.md](./endpoints-mvp.md) sobre el esquema de [modelo-datos.md](./modelo-datos.md). Estado al 2026-10-13: **paso 0 terminado**; sigue el paso 1. Todavía no hay ningún endpoint implementado.
+
+| Paso | Estado |
+| --- | --- |
+| 0. Cimientos | Hecho |
+| 1 a 9 | Pendientes |
 
 ## Stack
 
-Versiones verificadas el 2026-10-06.
+Versiones verificadas el 2026-10-06; PostgreSQL y pgAdmin, el 2026-10-13.
 
 | Pieza | Versión | Por qué |
 | --- | --- | --- |
@@ -12,6 +17,7 @@ Versiones verificadas el 2026-10-06.
 | Java | 25 (Temurin 25.0.4.1) | LTS más reciente. Boot 4.1 admite de 17 a 26 |
 | Build | Maven 3.9.16, vía `mvnw` | El wrapper fija la versión y evita instalar Maven |
 | PostgreSQL | 18.6 (`postgres:18.6`) | Última versión mayor, con un año en producción y soporte hasta 2030-11 |
+| pgAdmin | 9.17 (`dpage/pgadmin4:9.17`) | Cliente web para ver la base en desarrollo. Sólo en `compose.yaml` |
 
 - **Lo demás sale del BOM de Boot, sin versión explícita:** Spring Security 7.1.1, Hibernate 7.4.5.Final, Flyway 12.4.0, driver PostgreSQL 42.7.13, Testcontainers 2.0.5, JUnit 6.0.3. Subir Boot los sube juntos y ya probados entre sí.
 - **Ninguna dependencia fuera del BOM:** el JWT lo firma y valida Spring Security; el límite de tasa es un filtro propio en memoria.
@@ -26,7 +32,9 @@ Versiones verificadas el 2026-10-06.
 
 Cada paso cierra con sus tests de integración en verde contra PostgreSQL real (Testcontainers): `EXCLUDE USING gist` y los índices parciales no existen en H2.
 
-### 0. Cimientos
+### 0. Cimientos (hecho)
+
+Lo que quedó construido, con los desvíos respecto del plan original, está en [Resultado del paso 0](#resultado-del-paso-0).
 
 1. JDK 25 (Temurin). Con IntelliJ se descarga desde el IDE (`File > Project Structure > SDKs > Download JDK…`), que gestiona una versión por proyecto; no hace falta instalar un Java global.
 2. Generar el proyecto en start.spring.io: Maven, Java 25, Boot 4.1.1, Group `com.proconsulta`, Artifact `backend`, y las dependencias Spring Web, Validation, Spring Data JPA, PostgreSQL Driver, Flyway Migration, Spring Security, OAuth2 Resource Server, Testcontainers y Docker Compose Support. Descomprimir en `backend/`.
@@ -45,9 +53,43 @@ Precauciones para que el IDE y la terminal usen el mismo Java y el mismo Maven:
 
 Verificar: `.\mvnw.cmd -v` muestra Java 25 y Maven 3.9.16; la app arranca, Flyway aplica `V1` y un request sin token a una ruta privada responde `401`.
 
+#### Resultado del paso 0
+
+`.\mvnw.cmd test` pasa con 20 tests contra PostgreSQL 18.6.
+
+| Pieza | Dónde | Qué hace |
+| --- | --- | --- |
+| Esquema | `db/migration/V1__init.sql` | Las diez tablas, copiadas del DDL de `modelo-datos.md` |
+| Secreto del JWT | `shared/JwtConfig`, `.env.example` | Firma y valida con `JWT_SECRET`; rechaza claves de menos de 32 bytes |
+| Seguridad | `shared/SecurityConfig` | Rutas públicas sin token; el resto exige JWT o responde `401` |
+| Errores | `shared/ApiExceptionHandler` | Respuestas `ProblemDetail`: `400` con detalle por campo, `404` y `409` |
+| Tenant | `shared/TenantContext`, `TenantFilter`, `TenantIdentifierResolver` | El consultorio sale del dato `tenant_id` del JWT y llega a Hibernate |
+| Base local | `compose.yaml` | PostgreSQL y pgAdmin en <http://localhost:8081>, sólo desde la propia máquina |
+
+Desvíos y decisiones que no estaban en el plan:
+
+- **Zona horaria en UTC.** Java en Windows informa la zona como `America/Buenos_Aires`, un nombre antiguo que la imagen de PostgreSQL rechaza. La app la fija en UTC en `main()` y los tests en el `argLine` de surefire (`pom.xml`). Coincide con R2: la zona vive en `tenant.timezone`.
+- **Dos cadenas de seguridad.** Las rutas públicas tienen la suya, sin validación de JWT. Con una sola, un token vencido en el header hacía responder `401` a `/api/auth/refresh`, que se usa justamente cuando el token venció.
+- **Sin consultorio, Hibernate usa el tenant `0`** en vez de fallar: las lecturas vuelven vacías y las escrituras chocan con la clave foránea. Si fallara, `register` y `login` no podrían abrir una sesión antes de conocer el consultorio. El código que necesita el consultorio usa `TenantContext.require()`, que sí falla.
+- **`.env` local.** `application.properties` lee `backend/.env` si existe; cada integrante crea el suyo desde `.env.example`. En producción van variables de entorno reales.
+- **Errores de integridad no previstos** (clave foránea, `CHECK`) responden `400` genérico; el mensaje de la base queda en el log y no llega al cliente.
+
+Pendiente de pasos posteriores:
+
+- El consultorio de las rutas públicas, que sale del `slug`, se resuelve en el paso 8.
+- El aislamiento entre dos consultorios se prueba en el paso 2, con la primera entidad.
+- De los seis mensajes de `409` se probaron dos (slug y turno solapado); el resto, con sus endpoints.
+
 ### 1. Auth
 
 `register` → `login` → `refresh` → `logout` → `me`. Va primero porque `register` es la única forma de crear un consultorio y todo lo privado necesita su JWT.
+
+A resolver en este paso, heredado del paso 0:
+
+- Los JWT se emiten con el dato `tenant_id`, que es el que lee `TenantFilter`.
+- `register` crea el consultorio dentro del mismo request, pero Hibernate fija el tenant al abrir la sesión. Las primeras filas (`tenant`, `app_user`, `professional`) necesitan otra vía, por ejemplo SQL directo en la misma transacción.
+- `login` y `refresh` buscan al usuario antes de conocer su consultorio: esas dos búsquedas saltean el filtro de tenant de forma acotada.
+- `logout` es ruta privada. Si el JWT ya venció, el front renueva primero; la alternativa es pasarlo a la cadena pública y que funcione sólo con la cookie.
 
 Verificar: registrar y leer `me`; `refresh` rota el token; reusar un token rotado revoca la sesión; `login` responde el mismo `401` con email inexistente o contraseña incorrecta.
 
@@ -101,5 +143,5 @@ Verificar: superar el límite responde `429`. Techo conocido: el contador vive e
 
 ## Al terminar
 
-- Agregar el backend (versiones y comandos) a `AGENTS.md`.
+- Mantener al día la sección de backend de `AGENTS.md` (versiones y comandos).
 - Para consumir la API desde Angular, configurar el proxy del servidor de desarrollo (`/api` → `localhost:8080`). Con front y API en el mismo origen la cookie `SameSite=Strict` funciona y no hace falta CORS.

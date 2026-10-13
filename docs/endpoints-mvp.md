@@ -1,6 +1,6 @@
 # Endpoints — MVP
 
-Propuesta v1. Deriva de [modelo-datos.md](./modelo-datos.md). Estado: **propuesta**, sin implementar.
+Propuesta v1. Deriva de [modelo-datos.md](./modelo-datos.md). Estado: **contrato acordado**; ningún endpoint implementado todavía. Ya están la seguridad, el formato de errores y el contexto de tenant que este documento describe (ver [plan-backend-endpoints.md](./plan-backend-endpoints.md)).
 
 API REST JSON bajo `/api`. 39 endpoints que cubren las cinco funcionalidades del MVP.
 
@@ -11,7 +11,7 @@ API REST JSON bajo `/api`. 39 endpoints que cubren las cinco funcionalidades del
 - **Identificadores.** Turno, profesional y servicio se identifican por `publicId` (uuid) en toda URL (R6); los parámetros `professionalId` y `serviceId` llevan ese uuid. Paciente, obra social y bloqueo usan su `id` numérico, que sólo resuelve dentro del tenant y nunca aparece en un endpoint público.
 - **Tiempo.** Instantes en ISO-8601 con offset (`2026-10-06T14:30:00-03:00`). `from`/`to` definen el intervalo `[from, to)`. `schedule` usa `weekday` 1–7 y `HH:mm` en la zona del tenant.
 - **Bajas.** `DELETE` es baja lógica donde el modelo tiene `deleted_at`. Responde `204`.
-- **Errores.** `400` validación · `401` sin token o vencido · `404` no existe en este tenant · `409` unicidad (email, slug, DNI, nombre) o turno solapado · `429` límite de tasa.
+- **Errores.** Formato `ProblemDetail` (RFC 9457); el `400` de validación suma un campo `errors` con el problema de cada campo. `400` validación · `401` sin token o vencido · `404` no existe en este tenant · `409` unicidad (email, slug, DNI, nombre) o turno solapado · `429` límite de tasa.
 
 ## Auth
 
