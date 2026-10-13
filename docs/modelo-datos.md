@@ -2,7 +2,7 @@
 
 Propuesta v2. Reemplaza el modelo de dominio inicial del pitch (pág. 13). Estado: **propuesta**, sin implementar.
 
-PostgreSQL 16. Nueve tablas que cubren las cinco funcionalidades del MVP: autenticación con multi-tenancy, perfil profesional, pacientes, agenda y reserva pública. El DDL es la fuente de verdad; el diagrama es la misma información en otra forma.
+PostgreSQL 18. Nueve tablas que cubren las cinco funcionalidades del MVP: autenticación con multi-tenancy, perfil profesional, pacientes, agenda y reserva pública. El DDL es la fuente de verdad; el diagrama es la misma información en otra forma.
 
 ## Tablas
 
@@ -45,7 +45,7 @@ Si una tabla nueva no las cumple, no entra.
 - **R3.** El solapamiento de turnos lo impide la base (`EXCLUDE USING gist`), no el servicio: dos reservas simultáneas pasan las dos validaciones de Java antes de que cualquiera haga `commit`.
 - **R4.** El turno guarda una foto del servicio: `service_name` y `price` se copian al reservar, así subir el precio no reescribe cuánto costó la consulta de marzo. La duración no se copia, porque es `ends_at − starts_at`; la moneda tampoco, porque es `tenant.currency`.
 - **R5.** La baja es lógica donde hay historia, y los índices únicos son parciales (`WHERE deleted_at IS NULL`) para que dar de baja una ficha libere el identificador. El turno es la excepción: se mueve a `status = 'CANCELLED'`, que es la misma condición que libera el horario en la restricción anti-solapamiento.
-- **R6.** Hacia afuera viaja `public_id uuid`; el `bigint` es interno. La página de reservas es pública: un id secuencial en la URL de confirmación deja enumerar los turnos de todos los consultorios sumando uno.
+- **R6.** Hacia afuera viaja `public_id uuid`; el `bigint` es interno. Lo llevan `appointment`, `professional` y `service`, las tres entidades que aparecen en la reserva pública. La página de reservas es pública: un id secuencial en la URL de confirmación deja enumerar los turnos de todos los consultorios sumando uno.
 - **R7.** Los estados son conjuntos cerrados con `CHECK` (`status`, `role`, `origin`); el dinero es `numeric`, nunca `float`. Sin `NO_SHOW` explícito no se puede medir el ausentismo.
 
 ## Diagrama
@@ -88,6 +88,7 @@ erDiagram
 
   professional {
     bigint      id PK
+    uuid        public_id UK "viaja en URLs en lugar del id"
     bigint      tenant_id FK
     bigint      user_id FK, UK "nullable: está en la agenda pero no entra al sistema"
     text        display_name "el nombre público"
@@ -131,6 +132,7 @@ erDiagram
 
   service {
     bigint      id PK
+    uuid        public_id UK "viaja en URLs en lugar del id"
     bigint      tenant_id FK
     text        name UK "único por tenant, insensible a mayúsculas"
     text        description "nullable"
@@ -234,6 +236,7 @@ CREATE INDEX app_user_tenant_ix ON app_user (tenant_id);
 
 CREATE TABLE professional (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id   uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,  -- viaja en URLs
   tenant_id   bigint NOT NULL REFERENCES tenant (id),
   user_id      bigint UNIQUE,                -- NULL: está en la agenda, no entra al sistema
   display_name text NOT NULL,                -- el nombre público ("Lic. Ana Pérez").
@@ -307,6 +310,7 @@ CREATE INDEX patient_phone_ix ON patient (tenant_id, phone)
 
 CREATE TABLE service (
   id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id        uuid NOT NULL DEFAULT gen_random_uuid() UNIQUE,  -- viaja en URLs
   tenant_id        bigint NOT NULL REFERENCES tenant (id),
   name             text NOT NULL,
   description      text,
