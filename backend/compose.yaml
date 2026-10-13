@@ -7,3 +7,39 @@ services:
       - 'POSTGRES_USER=myuser'
     ports:
       - '5432'
+  # Cliente web para ver la base en desarrollo: http://localhost:8081
+  pgadmin:
+    image: 'dpage/pgadmin4:9.17'
+    environment:
+      - 'PGADMIN_DEFAULT_EMAIL=admin@proconsulta.dev'
+      - 'PGADMIN_DEFAULT_PASSWORD=secret'
+      # Modo escritorio: sin pantalla de login, sólo para desarrollo local
+      - 'PGADMIN_CONFIG_SERVER_MODE=False'
+      - 'PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False'
+    ports:
+      # Sólo desde esta máquina: sin login no debe quedar visible en la red
+      - '127.0.0.1:8081:80'
+    configs:
+      - source: pgadmin_servers
+        target: /pgadmin4/servers.json
+    labels:
+      # Spring Boot no debe tratarlo como un servicio de la app
+      org.springframework.boot.ignore: 'true'
+
+configs:
+  # Deja la base ya registrada en pgAdmin
+  pgadmin_servers:
+    content: |
+      {
+        "Servers": {
+          "1": {
+            "Name": "ProConsulta (local)",
+            "Group": "Servers",
+            "Host": "postgres",
+            "Port": 5432,
+            "MaintenanceDB": "mydatabase",
+            "Username": "myuser",
+            "SSLMode": "prefer"
+          }
+        }
+      }

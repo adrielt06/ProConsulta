@@ -118,4 +118,4 @@ Los pasos 3–4 y 5 no dependen entre sí y pueden avanzar en paralelo.
 
 ## Puntos abiertos
 
-- **Tabla `refresh_token`.** Rotar y revocar exige guardar los refresh tokens en el servidor (hash del token, usuario, vencimiento, revocación). El modelo de datos todavía no la tiene.
+Ninguno. La tabla `refresh_token`, que guarda las sesiones para poder rotarlas y revocarlas, ya está en [modelo-datos.md](./modelo-datos.md).

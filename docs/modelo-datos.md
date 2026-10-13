@@ -2,7 +2,7 @@
 
 Propuesta v2. Reemplaza el modelo de dominio inicial del pitch (pág. 13). Estado: **propuesta**, sin implementar.
 
-PostgreSQL 18. Nueve tablas que cubren las cinco funcionalidades del MVP: autenticación con multi-tenancy, perfil profesional, pacientes, agenda y reserva pública. El DDL es la fuente de verdad; el diagrama es la misma información en otra forma.
+PostgreSQL 18. Diez tablas que cubren las cinco funcionalidades del MVP: autenticación con multi-tenancy, perfil profesional, pacientes, agenda y reserva pública. El DDL es la fuente de verdad; el diagrama es la misma información en otra forma.
 
 ## Tablas
 
@@ -10,6 +10,7 @@ PostgreSQL 18. Nueve tablas que cubren las cinco funcionalidades del MVP: autent
 | --- | --- | --- |
 | `tenant` | el consultorio / la cuenta. Raíz de todo | `deleted_at` |
 | `app_user` | quien inicia sesión | `deleted_at` |
+| `refresh_token` | una sesión abierta de un usuario | `revoked_at` |
 | `professional` | quien atiende. Puede no tener cuenta | `deleted_at` |
 | `health_insurer` | obras sociales y prepagas del consultorio | `deleted_at` |
 | `patient` | quien es atendido | `deleted_at` |
@@ -24,6 +25,7 @@ PostgreSQL 18. Nueve tablas que cubren las cinco funcionalidades del MVP: autent
 tenant                    raíz — toda tabla lleva tenant_id → tenant
 │
 ├── app_user        0..1 ──── 0..1  professional   (un profesional puede no entrar al sistema)
+│                      1 ──── N     refresh_token  (una fila por sesión abierta)
 ├── professional       1 ──── N     schedule       (cuándo se trabaja)
 │                      1 ──── N     time_off       (cuándo no)
 │                      1 ──── N     appointment    (atiende)
@@ -56,6 +58,7 @@ Las precisiones (`numeric(12,2)`, los `CHECK` de formato) están en el DDL: Merm
 erDiagram
   health_insurer |o--o{ patient : "cubre a"
   app_user       |o--o| professional : "tiene acceso"
+  app_user       ||--o{ refresh_token : "abre sesión"
   professional   ||--o{ schedule : "define"
   professional   ||--o{ time_off : "bloquea"
   professional   ||--o{ appointment : "atiende"
@@ -84,6 +87,18 @@ erDiagram
     timestamptz created_at
     timestamptz updated_at
     timestamptz deleted_at "nullable"
+  }
+
+  refresh_token {
+    uuid        id PK "identifica la sesión, viaja dentro del token"
+    bigint      tenant_id FK
+    bigint      user_id FK
+    text        token_hash "hash del token vigente, nunca el token"
+    text        previous_token_hash "nullable, el token anterior"
+    timestamptz expires_at
+    timestamptz revoked_at "nullable, logout o reuso detectado"
+    timestamptz created_at
+    timestamptz updated_at
   }
 
   professional {
@@ -195,6 +210,16 @@ Cuatro restricciones que reemplazan validaciones de aplicación que tarde o temp
 2. **El tenant viaja dentro de la clave foránea.** Cuesta un `UNIQUE (tenant_id, id)` por tabla padre, y el cruce entre consultorios pasa a ser imposible en escritura.
 3. **Un paciente, una ficha.** `patient_dni_uk` es único por `(tenant_id, dni)`. La reserva pública no crea cuenta, así que el paciente que vuelve en marzo tiene que caer sobre su ficha de enero, y el DNI es el único identificador obligatorio que lo garantiza. La madre que reserva para sus dos hijos con su celular y su email genera dos fichas, porque los DNI son distintos.
 4. **El `WHERE` olvidado no lo tapa la clave foránea.** Las FK compuestas impiden *referenciar* a otro consultorio, no *leerlo*: un `findAll()` sin filtro devuelve los pacientes de los tres nutricionistas piloto. Eso lo cubre el discriminador de Hibernate (`@TenantId` más `CurrentTenantIdentifierResolver`).
+
+## Sesiones: `refresh_token`
+
+Sirve para mantener la sesión abierta sin pedir la contraseña a cada rato, y para poder cerrarla desde el servidor. El JWT de acceso dura 15 minutos y no se puede anular; el refresh token dura días, y esta tabla es lo que permite anularlo.
+
+- **Una fila por sesión.** El login la crea; cada renovación actualiza `token_hash` en la misma fila, así la tabla crece con las sesiones abiertas y no con las renovaciones.
+- **Se guarda el hash, nunca el token.** Igual que con las contraseñas: si la base se filtra, lo filtrado no sirve para iniciar sesión.
+- **Detecta el robo.** Cada token se usa una sola vez. Si llega un token que no es el vigente, hay dos copias en circulación: se completa `revoked_at` y la sesión muere para todos.
+- **`previous_token_hash`** guarda el token recién reemplazado, para aceptarlo durante unos segundos. Sin eso, dos pestañas que renuevan a la vez parecerían un robo.
+- **Cerrar sesión** es completar `revoked_at`. No se borra la fila: queda el rastro de cuándo y por qué terminó.
 
 ## DDL
 
@@ -396,6 +421,21 @@ CREATE TABLE appointment (
 );
 CREATE INDEX appointment_agenda_ix  ON appointment (tenant_id, professional_id, starts_at);
 CREATE INDEX appointment_patient_ix ON appointment (tenant_id, patient_id, starts_at DESC);
+
+-- ───── sesiones ────────────────────────────────────────────────────────────
+CREATE TABLE refresh_token (                 -- una fila por sesión abierta
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),  -- viaja dentro del token
+  tenant_id           bigint NOT NULL REFERENCES tenant (id),
+  user_id             bigint NOT NULL,
+  token_hash          text NOT NULL,         -- nunca el token en claro
+  previous_token_hash text,                  -- tolera dos pestañas que renuevan a la vez
+  expires_at          timestamptz NOT NULL,
+  revoked_at          timestamptz,           -- logout o reuso detectado
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now(),
+  FOREIGN KEY (tenant_id, user_id) REFERENCES app_user (tenant_id, id)
+);
+CREATE INDEX refresh_token_user_ix ON refresh_token (tenant_id, user_id);
 ```
 
 ## Supuestos

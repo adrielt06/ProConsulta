@@ -32,7 +32,7 @@ Cada paso cierra con sus tests de integración en verde contra PostgreSQL real (
 2. Generar el proyecto en start.spring.io: Maven, Java 25, Boot 4.1.1, Group `com.proconsulta`, Artifact `backend`, y las dependencias Spring Web, Validation, Spring Data JPA, PostgreSQL Driver, Flyway Migration, Spring Security, OAuth2 Resource Server, Testcontainers y Docker Compose Support. Descomprimir en `backend/`.
 3. Fijar la imagen de PostgreSQL: el proyecto generado trae `postgres:latest` en `compose.yaml` y en `TestcontainersConfiguration.java`. Reemplazar ambos por `postgres:18.6`; `latest` cambia de versión mayor sin aviso. La menor se sube cada trimestre.
 4. Migración `V1__init.sql` con el DDL de `modelo-datos.md` más la tabla `refresh_token`. Hibernate en `ddl-auto=validate`, para que una entidad que no coincide con el esquema impida arrancar.
-5. `refresh_token`, una fila por sesión: `id uuid`, `tenant_id`, `user_id`, `token_hash`, `previous_token_hash`, `expires_at`, `revoked_at`. Se agrega a `modelo-datos.md` como décima tabla.
+5. `refresh_token`, una fila por sesión: `id uuid`, `tenant_id`, `user_id`, `token_hash`, `previous_token_hash`, `expires_at`, `revoked_at`. Es la décima tabla de `modelo-datos.md`, que explica su objetivo.
 6. Transversal en `shared`: contexto de tenant (`@TenantId`, limpiado en `finally`, falla si falta), traducción de errores a `400`/`404`/`409` y cadena de seguridad (todo `/api` exige JWT salvo `register`, `login`, `refresh` y `/api/public/**`).
 7. Secretos por variable de entorno (`JWT_SECRET`), documentados en `.env.example`. Sin el secreto la app no arranca.
 
